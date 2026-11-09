@@ -26,7 +26,6 @@ function render() {
   app.innerHTML = `
     <main>
       <header>
-        <div class="eyebrow">OWLBEAR RODEO · EXTENSION</div>
         <h1>Dynamic <span>Day Cycle</span></h1>
       </header>
 
@@ -87,19 +86,12 @@ function render() {
 
         <!-- ABA 2: FILTROS E CENÁRIO -->
         <div id="tab-filter" class="tab-content" hidden>
-          <label class="switch">
-            <input id="tint" type="checkbox" />
-            <span class="track"></span>
-            <span class="switch-text">Filtro de cor no mapa (Aurora)</span>
-          </label>
-
           <label for="biome">Perfil de cenário</label>
           <select id="biome">
-            <option value="urban">Urbano / Padrão (Neutro)</option>
-            <option value="desert">Deserto · dourado e noite fria</option>
-            <option value="forest">Floresta · verde-azulado</option>
-            <option value="snow">Neve · luz fria</option>
-            <option value="swamp">Pântano · verde e ocre</option>
+            <option value="urban">Neutro</option>
+            <option value="desert">Deserto</option>
+            <option value="forest">Floresta</option>
+            <option value="snow">Neve</option>
           </select>
 
           <label for="strength">Intensidade do filtro <output id="strengthValue"></output></label>
@@ -126,7 +118,7 @@ function render() {
           </div>
         </div>
       </section>
-      <footer>Dynamic Day Cycle v0.2.0</footer>
+      <footer>Dynamic Day Cycle v0.2.1</footer>
     </main>`;
 }
 
@@ -155,7 +147,6 @@ function wire() {
   const infoEl = $<HTMLElement>("#speedInfo");
   const sunriseEl = $<HTMLInputElement>("#sunrise");
   const sunsetEl = $<HTMLInputElement>("#sunset");
-  const tintEl = $<HTMLInputElement>("#tint");
   const strengthEl = $<HTMLInputElement>("#strength");
   const strengthValue = $<HTMLOutputElement>("#strengthValue");
   const layerEl = $<HTMLSelectElement>("#tintLayer");
@@ -187,7 +178,6 @@ function wire() {
     if (!known) customEl.value = String(clock.speed);
     infoEl.textContent = `1h de jogo = ${fmtDuration(3600 / clock.speed)} reais.`;
     enabledEl.checked = clock.enabled;
-    tintEl.checked = clock.tint;
     strengthEl.value = String(clock.strength);
     strengthValue.value = `${Math.round(clock.strength * 100)}%`;
     layerEl.value = clock.tintLayer;
@@ -198,7 +188,9 @@ function wire() {
     if (document.activeElement !== sunsetEl) sunsetEl.value = formatHour(clock.sunset);
     toggleEl.textContent = clock.running ? "⏸ Pausar" : "▶ Iniciar";
     const lock = !isGM || !sceneReady;
-    for (const el of document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>("input, select, button")) el.disabled = lock;
+    for (const el of document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>("input, select, button")) {
+      if (el !== enabledEl) el.disabled = lock;
+    }
     roMsg.hidden = isGM || !sceneReady;
     noScene.hidden = sceneReady;
   }
@@ -222,9 +214,10 @@ function wire() {
     const target = day * 86400 + clock.sunrise * 3600;
     advance(target > now ? target - now : target + 86400 - now);
   });
+  // Anoitecer ajustado para o pôr do sol + 1 hora
   $("#toDusk").addEventListener("click", () => {
     const now = gameSeconds(clock), day = Math.floor(now / 86400);
-    const target = day * 86400 + clock.sunset * 3600;
+    const target = day * 86400 + (clock.sunset + 1) * 3600;
     advance(target > now ? target - now : target + 86400 - now);
   });
   applyTimeEl.addEventListener("click", () => {
@@ -238,7 +231,6 @@ function wire() {
   customEl.addEventListener("change", () => { const v = Number(customEl.value); if (v > 0) commit({ speed: v }); });
   sunriseEl.addEventListener("change", () => { const h = parseHour(sunriseEl.value); if (h !== null) commit({ sunrise: h }); });
   sunsetEl.addEventListener("change", () => { const h = parseHour(sunsetEl.value); if (h !== null) commit({ sunset: h }); });
-  tintEl.addEventListener("change", () => commit({ tint: tintEl.checked }));
   biomeEl.addEventListener("change", () => commit({ biome: biomeEl.value as ClockState["biome"] }));
   strengthEl.addEventListener("input", () => {
     strengthValue.value = `${Math.round(Number(strengthEl.value) * 100)}%`;
