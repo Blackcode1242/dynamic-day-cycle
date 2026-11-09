@@ -3,7 +3,7 @@ import "./style.css";
 import {
   PHASE_LABELS, SPEEDS, formatHour, gameSeconds, hourOfDay, normalizeClock, parseHour, phaseAt, readClock, tintHex, CLOCK_KEY, moonLabel
 } from "./clock";
-import type { ClockState, TintLayer, WeatherEffect } from "./clock";
+import type { ClockState, TintLayer } from "./clock";
 
 let clock: ClockState = normalizeClock(null);
 let isGM = false;
@@ -32,8 +32,7 @@ function render() {
 
       <nav class="tabs">
         <button class="tab-btn active" data-tab="tab-clock">⏱ Relógio</button>
-        <button class="tab-btn" data-tab="tab-filter">🎨 Filtros & Luzes</button>
-        <button class="tab-btn" data-tab="tab-effects">🌦 Clima & Atmosfera</button>
+        <button class="tab-btn" data-tab="tab-filter">🎨 Filtros & Cenário</button>
       </nav>
 
       <section class="panel">
@@ -86,7 +85,7 @@ function render() {
           <p class="hint small" id="speedInfo"></p>
         </div>
 
-        <!-- ABA 2: FILTROS E LUZES -->
+        <!-- ABA 2: FILTROS E CENÁRIO -->
         <div id="tab-filter" class="tab-content" hidden>
           <label class="switch">
             <input id="tint" type="checkbox" />
@@ -103,8 +102,8 @@ function render() {
             <option value="swamp">Pântano · verde e ocre</option>
           </select>
 
-          <label for="strength">Força do filtro <output id="strengthValue"></output></label>
-          <input id="strength" type="range" min="0.1" max="0.85" step="0.05" />
+          <label for="strength">Intensidade do filtro <output id="strengthValue"></output></label>
+          <input id="strength" type="range" min="0.2" max="1.0" step="0.05" />
 
           <label for="tintLayer">O filtro cobre</label>
           <select id="tintLayer">
@@ -114,21 +113,8 @@ function render() {
 
           <label for="stagger">Variação das luzes <output id="staggerValue"></output></label>
           <input id="stagger" type="range" min="0" max="90" step="5" />
-        </div>
 
-        <!-- ABA 3: CLIMA E ATMOSFERA (Weather Style) -->
-        <div id="tab-effects" class="tab-content" hidden>
-          <label for="weatherSelect">Efeito Atmosférico Ativo</label>
-          <select id="weatherSelect">
-            <option value="none">Nenhum (Céu limpo)</option>
-            <option value="fog">🌫️ Neblina Matinal</option>
-            <option value="rays">✨ Raios Solares</option>
-            <option value="stars">🌌 Céu Estrelado</option>
-            <option value="rain">🌧️ Chuva Sutil</option>
-          </select>
-          <p class="hint small">Selecione um efeito climático para aplicá-lo dinamicamente sobre o mapa.</p>
-
-          <div class="row" style="margin-top:10px;">
+          <div class="row" style="margin-top:6px;">
             <div class="grow">
               <label for="sunrise">Nascer do sol</label>
               <input id="sunrise" type="time" />
@@ -176,7 +162,6 @@ function wire() {
   const staggerEl = $<HTMLInputElement>("#stagger");
   const staggerValue = $<HTMLOutputElement>("#staggerValue");
   const biomeEl = $<HTMLSelectElement>("#biome");
-  const weatherEl = $<HTMLSelectElement>("#weatherSelect");
   const moonInfoEl = $<HTMLElement>("#moonInfo");
   const roMsg = $<HTMLElement>("#roMsg");
   const noScene = $<HTMLElement>("#noScene");
@@ -208,7 +193,6 @@ function wire() {
     layerEl.value = clock.tintLayer;
     staggerEl.value = String(clock.stagger);
     biomeEl.value = clock.biome;
-    weatherEl.value = clock.weather;
     staggerValue.value = `±${clock.stagger} min`;
     if (document.activeElement !== sunriseEl) sunriseEl.value = formatHour(clock.sunrise);
     if (document.activeElement !== sunsetEl) sunsetEl.value = formatHour(clock.sunset);
@@ -256,7 +240,6 @@ function wire() {
   sunsetEl.addEventListener("change", () => { const h = parseHour(sunsetEl.value); if (h !== null) commit({ sunset: h }); });
   tintEl.addEventListener("change", () => commit({ tint: tintEl.checked }));
   biomeEl.addEventListener("change", () => commit({ biome: biomeEl.value as ClockState["biome"] }));
-  weatherEl.addEventListener("change", () => commit({ weather: weatherEl.value as WeatherEffect }));
   strengthEl.addEventListener("input", () => {
     strengthValue.value = `${Math.round(Number(strengthEl.value) * 100)}%`;
     commitSoon({ strength: Number(strengthEl.value) });

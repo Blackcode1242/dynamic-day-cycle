@@ -3,7 +3,6 @@ export const CLOCK_KEY = "com.example.dynamic-day-cycle/state";
 export type TintLayer = "DRAWING" | "ATTACHMENT";
 export type Schedule = "always" | "night" | "day";
 export type Biome = "urban" | "desert" | "forest" | "snow" | "swamp";
-export type WeatherEffect = "none" | "fog" | "rays" | "stars" | "rain";
 
 export type ClockState = {
   enabled: boolean;
@@ -19,14 +18,13 @@ export type ClockState = {
   stagger: number;
   biome: Biome;
   moonOffset: number;
-  weather: WeatherEffect;
 };
 
 export const DEFAULT_CLOCK: ClockState = {
   enabled: false, running: false, speed: 60, anchorReal: 0,
   anchorGame: 12 * 3600, sunrise: 6, sunset: 18,
-  tint: true, strength: 0.65, tintLayer: "DRAWING", stagger: 20,
-  biome: "urban", moonOffset: 14, weather: "none"
+  tint: true, strength: 0.9, tintLayer: "DRAWING", stagger: 20,
+  biome: "urban", moonOffset: 14
 };
 
 export const SPEEDS = [0.25, 0.5, 1, 1.5, 2, 4, 8, 16, 32, 60, 64, 120, 240, 720];
@@ -41,8 +39,6 @@ export function normalizeClock(raw: unknown): ClockState {
   const d = DEFAULT_CLOCK;
   const validBiomes: Biome[] = ["urban", "desert", "forest", "snow", "swamp"];
   const biome = validBiomes.includes(String(r.biome) as Biome) ? (r.biome as Biome) : d.biome;
-  const validWeather: WeatherEffect[] = ["none", "fog", "rays", "stars", "rain"];
-  const weather = validWeather.includes(String(r.weather) as WeatherEffect) ? (r.weather as WeatherEffect) : d.weather;
 
   return {
     enabled: r.enabled === true, running: r.running === true,
@@ -50,11 +46,10 @@ export function normalizeClock(raw: unknown): ClockState {
     anchorReal: num(r.anchorReal, d.anchorReal, 0, 8.64e15),
     anchorGame: num(r.anchorGame, d.anchorGame, -1e12, 1e12),
     sunrise: num(r.sunrise, d.sunrise, 3, 10), sunset: num(r.sunset, d.sunset, 15, 22),
-    tint: r.tint !== false, strength: num(r.strength, d.strength, 0.1, 0.85),
+    tint: r.tint !== false, strength: num(r.strength, d.strength, 0.2, 1.0),
     tintLayer: r.tintLayer === "ATTACHMENT" ? "ATTACHMENT" : "DRAWING",
     stagger: num(r.stagger, d.stagger, 0, 90), biome,
-    moonOffset: num(r.moonOffset, d.moonOffset, 0, 29.53),
-    weather
+    moonOffset: num(r.moonOffset, d.moonOffset, 0, 29.53)
   };
 }
 
@@ -126,12 +121,13 @@ export function moonLabel(c: ClockState, now = Date.now()) {
 }
 
 type Rgb = [number, number, number];
+// Paletas com cores mais profundas e marcantes para cada bioma
 const PALETTES: Record<Biome, { night: Rgb; predawn: Rgb; dawn: Rgb; day: Rgb; dusk: Rgb; twilight: Rgb }> = {
-  urban: { night: [70, 85, 110], predawn: [130, 140, 165], dawn: [230, 210, 190], day: [250, 250, 250], dusk: [220, 175, 145], twilight: [100, 110, 135] },
-  desert: { night: [85, 102, 160], predawn: [135, 144, 194], dawn: [255, 190, 140], day: [255, 244, 222], dusk: [255, 160, 110], twilight: [133, 111, 170] },
-  forest: { night: [78, 106, 149], predawn: [124, 152, 171], dawn: [190, 210, 165], day: [224, 239, 218], dusk: [214, 177, 139], twilight: [107, 133, 157] },
-  snow: { night: [103, 131, 186], predawn: [171, 194, 224], dawn: [235, 215, 200], day: [239, 247, 255], dusk: [232, 189, 171], twilight: [131, 153, 197] },
-  swamp: { night: [78, 113, 106], predawn: [123, 159, 137], dawn: [200, 196, 139], day: [223, 229, 194], dusk: [203, 171, 111], twilight: [107, 135, 103] }
+  urban: { night: [35, 50, 80], predawn: [90, 105, 135], dawn: [220, 190, 160], day: [255, 255, 255], dusk: [210, 150, 110], twilight: [70, 80, 110] },
+  desert: { night: [50, 65, 120], predawn: [110, 120, 170], dawn: [255, 170, 110], day: [255, 235, 200], dusk: [255, 130, 70], twilight: [100, 80, 140] },
+  forest: { night: [30, 60, 100], predawn: [80, 120, 140], dawn: [160, 200, 130], day: [210, 240, 200], dusk: [190, 130, 90], twilight: [60, 90, 120] },
+  snow: { night: [60, 90, 150], predawn: [130, 160, 200], dawn: [210, 190, 180], day: [230, 245, 255], dusk: [200, 140, 130], twilight: [90, 120, 170] },
+  swamp: { night: [35, 70, 60], predawn: [80, 130, 100], dawn: [170, 180, 90], day: [200, 220, 170], dusk: [160, 110, 60], twilight: [60, 90, 70] }
 };
 
 function keyframes(c: ClockState): { h: number; rgb: Rgb }[] {
@@ -154,11 +150,13 @@ export function tintHex(h: number, c: ClockState): string {
   const span = ((b.h - a.h) + 24) % 24 || 24;
   const t = Math.min(1, Math.max(0, (((h - a.h) + 24) % 24) / span));
   const night = !isDayAt(h, c) ? moonIllumination(c) : 0;
-  const strength = Math.min(0.8, c.strength * (1 - night * 0.25));
+  
+  // Força amplificada para o filtro ficar bem marcante e perceptível
+  const strength = Math.min(0.95, c.strength * (1 - night * 0.2));
   
   return [0, 1, 2].map(i => {
     const v = a.rgb[i] + (b.rgb[i] - a.rgb[i]) * t;
     const adjusted = Math.round(255 - (255 - v) * strength);
-    return Math.min(255, Math.max(50, adjusted)).toString(16).padStart(2, "0");
+    return Math.min(255, Math.max(20, adjusted)).toString(16).padStart(2, "0");
   }).join("");
 }
