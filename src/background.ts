@@ -1,79 +1,73 @@
 import OBR, { buildEffect } from "@owlbear-rodeo/sdk";
 import type { Item } from "@owlbear-rodeo/sdk";
-import { hourOfDay, readClock, tintHex, moonIllumination, isDayAt } from "./clock";
+import { hourOfDay, readClock, tintHex, moonIllumination } from "./clock";
 import type { ClockState } from "./clock";
 
 const EXTENSION_ID = "com.example.dynamic-day-cycle";
 const TAG = `${EXTENSION_ID}/tint`;
-const ATMOS_TAG = `${EXTENSION_ID}/atmosphere`;
+const WEATHER_TAG = `${EXTENSION_ID}/weather`;
+
 let clock: ClockState | null = null;
 let tintId: string | null = null;
-let atmosId: string | null = null;
-let lastHex = "", lastGeo = "", lastAtmos = "", lastAtmosGeo = "";
+let weatherId: string | null = null;
+let lastHex = "", lastGeo = "", lastWeather = "";
 let unsubscribers: Array<() => void> = [];
 let timer: number | undefined;
 let running = false, again = false;
 
 const TINT_SKSL = `uniform vec3 tint; half4 main(float2 coord) { return half4(tint, 1.0); }`;
 
-// Shader Atmosférico Corrigido e Otimizado (sem sobreposição preta)
-const ATMOS_SKSL = `
-uniform float hour;
-uniform float sunrise;
-uniform float sunset;
-uniform float moon;
-uniform float night;
-uniform float enabled;
-uniform float fogOn;
-uniform float raysOn;
-uniform float starsOn;
+// Shader Atmosférico limpo baseado no efeito selecionado (Weather)
+const WEATHER_SKSL = `
+uniform float type; // 1: fog, 2: rays, 3: stars, 4: rain
+uniform float time;
 
 half4 main(float2 coord) {
-  if (enabled < 0.5) return half4(0.0);
   vec2 p = coord / size;
-  
-  float morning = (1.0 - smoothstep(sunrise + 0.2, sunrise + 2.6, hour)) * smoothstep(sunrise - 1.0, sunrise + 0.2, hour);
-  float evening = smoothstep(sunset - 2.4, sunset - 0.3, hour) * (1.0 - smoothstep(sunset + 0.3, sunset + 1.4, hour));
-  
-  // Neblina
-  float mistAlpha = morning * 0.12 * fogOn;
-  
-  // Raios
-  float rayAxis = mix(p.x * 0.72 + p.y * 0.28, p.x * -0.48 + p.y * 0.88, step(0.001, evening));
-  float rayBands = pow(max(0.0, sin(rayAxis * 18.0 + 0.5)), 7.0);
-  float raysAlpha = max(morning, evening) * rayBands * 0.10 * raysOn;
-  
-  // Estrelas
-  vec2 cell = floor(coord / 34.0);
-  float rnd = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
-  float star = step(0.986, rnd) * (0.45 + 0.55 * sin((hour * 6.283 + rnd * 80.0)));
-  float starAlpha = star * night * (0.08 + moon * 0.10) * starsOn;
-  
-  float alpha = clamp(mistAlpha + raysAlpha + starAlpha, 0.0, 0.6);
-  if (alpha <= 0.001) return half4(0.0);
-  
-  vec3 color = vec3(0.85, 0.90, 1.0);
-  color = mix(color, vec3(1.0, 0.70, 0.40), raysAlpha / max(alpha, 0.001));
-  color = mix(color, vec3(0.70, 0.80, 1.0), starAlpha / max(alpha, 0.001));
-  
-  return half4(color * alpha, alpha);
+  if (type < 0.5) return half4(0.0);
+
+  // Neblina suave
+  if (type < 1.5) {
+    float n = sin(p.x * 10.0 + time * 0.5) * cos(p.y * 10.0 + time * 0.3);
+    float alpha = 0.12 + 0.04 * n;
+    return half4(0.85, 0.90, 0.95, alpha);
+  }
+  // Raios solares diagonais
+  else if (type < 2.5) {
+    float r = sin((p.x + p.y) * 15.0 - time * 1.5);
+    float alpha = max(0.0, r) * 0.15;
+    return half4(1.0, 0.85, 0.50, alpha);
+  }
+  // Noite estrelada
+  else if (type < 3.5) {
+    vec2 cell = floor(coord / 40.0);
+    float rnd = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+    float star = step(0.97, rnd) * (0.5 + 0.5 * sin(time * 3.0 + rnd * 50.0));
+    return half4(0.8, 0.9, 1.0, star * 0.6);
+  }
+  // Chuva sutil
+  else {
+    float rain = fract(p.y * 50.0 - time * 5.0 + p.x * 10.0);
+    float drop = step(0.92, rain);
+    return half4(0.7, 0.8, 0.9, drop * 0.25);
+  }
 }`;
 
 function rgbUniform(hex: string) {
   return { name: "tint", value: { x: parseInt(hex.slice(0, 2), 16) / 255, y: parseInt(hex.slice(2, 4), 16) / 255, z: parseInt(hex.slice(4, 6), 16) / 255 } };
 }
 
-async function coverage() {
-  const PAD = 1500;
+// Encontra estritamente os limites exatos do mapa para aplicar o filtro estilo Aurora
+async function getMapBounds() {
+  const PAD = 50; // Bem próximo às bordas reais do mapa
   try {
-    let items = await OBR.scene.items.getItems((i: Item) => i.layer === "MAP");
-    if (!items.length) items = await OBR.scene.items.getItems();
+    const items = await OBR.scene.items.getItems((i: Item) => i.layer === "MAP");
     if (items.length) {
       const b = await OBR.scene.items.getItemBounds(items.map(i => i.id));
       return { x: b.min.x - PAD, y: b.min.y - PAD, width: b.width + PAD * 2, height: b.height + PAD * 2 };
     }
   } catch { /* fallback */ }
-  return { x: -10000, y: -10000, width: 20000, height: 20000 };
+  return { x: -5000, y: -5000, width: 10000, height: 10000 };
 }
 
 async function removeTagged(tag: string) {
@@ -81,17 +75,19 @@ async function removeTagged(tag: string) {
   if (locals.length) await OBR.scene.local.deleteItems(locals.map(i => i.id));
 }
 async function removeTint() { await removeTagged(TAG); tintId = null; lastHex = ""; lastGeo = ""; }
-async function removeAtmos() { await removeTagged(ATMOS_TAG); atmosId = null; lastAtmos = ""; lastAtmosGeo = ""; }
+async function removeWeather() { await removeTagged(WEATHER_TAG); weatherId = null; lastWeather = ""; }
 
 async function apply() {
   if (!clock || !clock.enabled) {
     if (tintId || lastHex) await removeTint();
-    if (atmosId || lastAtmos) await removeAtmos();
+    if (weatherId || lastWeather) await removeWeather();
     return;
   }
-  const h = hourOfDay(clock), hex = tintHex(h, clock), geo = await coverage();
+
+  const h = hourOfDay(clock), hex = tintHex(h, clock), geo = await getMapBounds();
   const geoSig = JSON.stringify([geo, clock.tintLayer]);
-  
+
+  // 1. Filtro de Cor (Estilo Aurora cobrindo o mapa)
   if (!clock.tint || hex === "ffffff") {
     if (tintId || lastHex) await removeTint();
   } else {
@@ -112,40 +108,39 @@ async function apply() {
     }
   }
 
-  if (!clock.atmosphere) { if (atmosId || lastAtmos) await removeAtmos(); return; }
-  const atmosSig = JSON.stringify([geoSig, Math.round(h * 20) / 20, clock.sunrise, clock.sunset, moonIllumination(clock), clock.fogEnabled, clock.raysEnabled, clock.starsEnabled]);
-  if (atmosId) {
-    const found = await OBR.scene.local.getItems([atmosId]);
-    if (!found.length) { atmosId = null; lastAtmos = ""; }
-  }
-  const night = isDayAt(h, clock) ? 0 : (h >= clock.sunset ? Math.min(1, (h - clock.sunset) / 1.5) : h < clock.sunrise ? Math.min(1, (clock.sunrise - h) / 1.5) : 0);
-  const uniforms = [
-    { name: "hour", value: h }, { name: "sunrise", value: clock.sunrise },
-    { name: "sunset", value: clock.sunset }, { name: "moon", value: moonIllumination(clock) },
-    { name: "night", value: night }, { name: "enabled", value: 1 },
-    { name: "fogOn", value: clock.fogEnabled ? 1 : 0 },
-    { name: "raysOn", value: clock.raysEnabled ? 1 : 0 },
-    { name: "starsOn", value: clock.starsEnabled ? 1 : 0 }
-  ];
+  // 2. Efeito de Clima Selecionável (Weather Style)
+  const weatherMap: Record<string, number> = { none: 0, fog: 1, rays: 2, stars: 3, rain: 4 };
+  const typeVal = weatherMap[clock.weather] || 0;
 
-  if (!atmosId || lastAtmosGeo !== geoSig) {
-    if (atmosId) await removeAtmos();
-    const effect = buildEffect().effectType("STANDALONE").width(geo.width).height(geo.height)
-      .position({ x: geo.x, y: geo.y }).layer(clock.tintLayer).blendMode("SCREEN")
-      .locked(true).disableHit(true).zIndex(1).uniforms(uniforms).sksl(ATMOS_SKSL)
-      .metadata({ [ATMOS_TAG]: true }).build();
-    await OBR.scene.local.addItems([effect]); atmosId = effect.id; lastAtmosGeo = geoSig;
+  if (typeVal === 0) {
+    if (weatherId || lastWeather) await removeWeather();
   } else {
-    await OBR.scene.local.updateItems([atmosId], drafts => { for (const d of drafts) (d as any).uniforms = uniforms; });
+    const timeVal = Date.now() / 1000;
+    const uniforms = [{ name: "type", value: typeVal }, { name: "time", value: timeVal }];
+
+    if (weatherId) {
+      const found = await OBR.scene.local.getItems([weatherId]);
+      if (!found.length) weatherId = null;
+    }
+
+    if (!weatherId) {
+      const effect = buildEffect().effectType("STANDALONE").width(geo.width).height(geo.height)
+        .position({ x: geo.x, y: geo.y }).layer(clock.tintLayer).blendMode("SCREEN")
+        .locked(true).disableHit(true).zIndex(1).uniforms(uniforms).sksl(WEATHER_SKSL)
+        .metadata({ [WEATHER_TAG]: true }).build();
+      await OBR.scene.local.addItems([effect]); weatherId = effect.id;
+    } else {
+      await OBR.scene.local.updateItems([weatherId], drafts => { for (const d of drafts) (d as any).uniforms = uniforms; });
+    }
   }
-  lastAtmos = atmosSig;
 }
 
 function queueApply() {
   if (running) { again = true; return; }
   running = true;
-  (async () => { try { do { again = false; try { await apply(); } catch (e) { console.error("Dynamic Day Cycle: falha ao aplicar ambientação", e); } } while (again); } finally { running = false; } })();
+  (async () => { try { do { again = false; try { await apply(); } catch (e) { console.error(e); } } while (again); } finally { running = false; } })();
 }
+
 function start() {
   stop();
   unsubscribers = [
@@ -153,13 +148,15 @@ function start() {
     OBR.scene.items.onChange(() => queueApply())
   ];
   OBR.scene.getMetadata().then(meta => { clock = readClock(meta); queueApply(); }).catch(queueApply);
-  timer = window.setInterval(queueApply, 1000);
+  timer = window.setInterval(queueApply, 300); // Atualiza animação fluida do clima
 }
+
 function stop() {
   for (const u of unsubscribers) u(); unsubscribers = [];
   if (timer !== undefined) { window.clearInterval(timer); timer = undefined; }
-  clock = null; tintId = null; atmosId = null; lastHex = "", lastGeo = "", lastAtmos = "", lastAtmosGeo = "";
+  clock = null; tintId = null; weatherId = null; lastHex = ""; lastGeo = ""; lastWeather = "";
 }
+
 OBR.onReady(async () => {
   OBR.scene.onReadyChange(ready => ready ? start() : stop());
   if (await OBR.scene.isReady()) start();
