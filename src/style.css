@@ -57,3 +57,5 @@ footer { color: #777d8a; font-size: 10px; text-align: center; margin-top: 12px; 
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 input[type="time"], input[type="text"] { width: 100%; border: 1px solid #454a58; border-radius: 8px; padding: 9px; color: #f4f2ee; background: #17191f; font: inherit; font-size: 12px; }
 .ro { margin: 0; color: #ff9a8a; font-size: 11px; }
+.quicktime button { flex: 1; padding: 9px 8px; }
+#moonInfo { margin: -4px 0 0; color: #c7cce0; }

@@ -1,7 +1,7 @@
 import OBR from "@owlbear-rodeo/sdk";
 import "./style.css";
 import {
-  PHASE_LABELS, SPEEDS, formatHour, gameSeconds, hourOfDay, normalizeClock, parseHour, phaseAt, readClock, tintHex, CLOCK_KEY
+  PHASE_LABELS, SPEEDS, formatHour, gameSeconds, hourOfDay, normalizeClock, parseHour, phaseAt, readClock, tintHex, CLOCK_KEY, moonLabel
 } from "./clock";
 import type { ClockState, TintLayer } from "./clock";
 
@@ -47,9 +47,18 @@ function render() {
           </div>
           <div class="swatch" id="swatch" title="Cor do filtro agora"></div>
         </div>
+        <p class="hint" id="moonInfo">Lua: --</p>
 
         <div class="btnrow" style="display:flex;gap:8px">
           <button id="toggle" class="btn primary" type="button" style="flex:1">▶ Iniciar</button>
+        </div>
+        <div class="btnrow quicktime">
+          <button id="plus1" class="btn" type="button">+1h</button>
+          <button id="plus8" class="btn" type="button">+8h</button>
+        </div>
+        <div class="btnrow quicktime">
+          <button id="toDawn" class="btn" type="button">Até amanhecer</button>
+          <button id="toDusk" class="btn" type="button">Até anoitecer</button>
         </div>
 
         <div class="row">
@@ -86,6 +95,19 @@ function render() {
           <span class="track"></span>
           <span class="switch-text">Filtro de cor no mapa</span>
         </label>
+        <label for="biome">Perfil de cenário</label>
+        <select id="biome">
+          <option value="desert">Deserto · dourado e noite fria</option>
+          <option value="forest">Floresta · verde-azulado</option>
+          <option value="snow">Neve · luz fria</option>
+          <option value="swamp">Pântano · verde e ocre</option>
+        </select>
+        <label class="switch">
+          <input id="atmosphere" type="checkbox" />
+          <span class="track"></span>
+          <span class="switch-text">Neblina, raios e estrelas</span>
+        </label>
+        <p class="hint small">A neblina aparece no amanhecer; os raios ficam mais fortes perto do nascer e pôr do sol; as estrelas surgem à noite.</p>
         <label for="strength">Força do filtro <output id="strengthValue"></output></label>
         <input id="strength" type="range" min="0.2" max="1" step="0.05" />
         <label for="tintLayer">O filtro cobre</label>
@@ -98,7 +120,7 @@ function render() {
         <input id="stagger" type="range" min="0" max="90" step="5" />
         <p class="hint small">Cada luz com agenda (Dynamic Auras &amp; Lights 1.5+) acende e apaga alguns minutos antes ou depois das outras.</p>
       </section>
-      <footer>Dynamic Day Cycle 0.1.0</footer>
+      <footer>Dynamic Day Cycle 0.2.0</footer>
     </main>`;
 }
 
@@ -123,6 +145,9 @@ function wire() {
   const layerEl = $<HTMLSelectElement>("#tintLayer");
   const staggerEl = $<HTMLInputElement>("#stagger");
   const staggerValue = $<HTMLOutputElement>("#staggerValue");
+  const biomeEl = $<HTMLSelectElement>("#biome");
+  const atmosphereEl = $<HTMLInputElement>("#atmosphere");
+  const moonInfoEl = $<HTMLElement>("#moonInfo");
   const roMsg = $<HTMLElement>("#roMsg");
   const noScene = $<HTMLElement>("#noScene");
 
@@ -153,6 +178,8 @@ function wire() {
     strengthValue.value = `${Math.round(clock.strength * 100)}%`;
     layerEl.value = clock.tintLayer;
     staggerEl.value = String(clock.stagger);
+    biomeEl.value = clock.biome;
+    atmosphereEl.checked = clock.atmosphere;
     staggerValue.value = `±${clock.stagger} min`;
     if (document.activeElement !== sunriseEl) sunriseEl.value = formatHour(clock.sunrise);
     if (document.activeElement !== sunsetEl) sunsetEl.value = formatHour(clock.sunset);
@@ -168,11 +195,25 @@ function wire() {
     timeEl.textContent = formatHour(h);
     phaseEl.textContent = clock.enabled ? PHASE_LABELS[phaseAt(h, clock)] : "Ciclo desligado";
     swatchEl.style.background = `#${tintHex(h, clock)}`;
+    moonInfoEl.textContent = `Lua: ${moonLabel(clock)} · influencia na claridade noturna`;
     if (document.activeElement !== setTimeEl && !setTimeEl.value) setTimeEl.value = formatHour(h);
   }
 
   enabledEl.addEventListener("change", () => commit({ enabled: enabledEl.checked }));
   toggleEl.addEventListener("click", () => commit({ running: !clock.running, enabled: true }));
+  const advance = (seconds: number) => commit({ anchorGame: gameSeconds(clock) + seconds, enabled: true });
+  $("#plus1").addEventListener("click", () => advance(3600));
+  $("#plus8").addEventListener("click", () => advance(8 * 3600));
+  $("#toDawn").addEventListener("click", () => {
+    const now = gameSeconds(clock), day = Math.floor(now / 86400);
+    const target = day * 86400 + clock.sunrise * 3600;
+    advance(target > now ? target - now : target + 86400 - now);
+  });
+  $("#toDusk").addEventListener("click", () => {
+    const now = gameSeconds(clock), day = Math.floor(now / 86400);
+    const target = day * 86400 + clock.sunset * 3600;
+    advance(target > now ? target - now : target + 86400 - now);
+  });
   applyTimeEl.addEventListener("click", () => {
     const h = parseHour(setTimeEl.value);
     if (h !== null) commit({ anchorGame: Math.floor(gameSeconds(clock) / 86400) * 86400 + h * 3600 });
@@ -185,6 +226,8 @@ function wire() {
   sunriseEl.addEventListener("change", () => { const h = parseHour(sunriseEl.value); if (h !== null) commit({ sunrise: h }); });
   sunsetEl.addEventListener("change", () => { const h = parseHour(sunsetEl.value); if (h !== null) commit({ sunset: h }); });
   tintEl.addEventListener("change", () => commit({ tint: tintEl.checked }));
+  biomeEl.addEventListener("change", () => commit({ biome: biomeEl.value as ClockState["biome"] }));
+  atmosphereEl.addEventListener("change", () => commit({ atmosphere: atmosphereEl.checked }));
   strengthEl.addEventListener("input", () => {
     strengthValue.value = `${Math.round(Number(strengthEl.value) * 100)}%`;
     commitSoon({ strength: Number(strengthEl.value) });
