@@ -82,7 +82,7 @@ function render() {
             ${SPEEDS.map((s) => `<option value="${s}">${speedLabel(s)}</option>`).join("")}
             <option value="custom">Personalizada…</option>
           </select>
-          <input id="customSpeed" type="number" min="0.01" max="5000" step="0.01" placeholder="Multiplicador (ex.: 90)" hidden />
+          <input id="customSpeed" type="number" min="0.01" max="5000" step="0.01" placeholder="Multiplicador" hidden />
           <p class="hint small" id="speedInfo"></p>
         </div>
 
@@ -96,10 +96,12 @@ function render() {
 
           <label for="biome">Perfil de cenário</label>
           <select id="biome">
+            <option value="urban">Urbano / Padrão (Neutro)</option>
             <option value="desert">Deserto · dourado e noite fria</option>
             <option value="forest">Floresta · verde-azulado</option>
             <option value="snow">Neve · luz fria</option>
             <option value="swamp">Pântano · verde e ocre</option>
+            <option value="bloodmoon">Lua de Sangue · sombrio / terror</option>
           </select>
 
           <label for="strength">Força do filtro <output id="strengthValue"></output></label>
@@ -107,13 +109,12 @@ function render() {
 
           <label for="tintLayer">O filtro cobre</label>
           <select id="tintLayer">
-            <option value="DRAWING">Só o mapa e desenhos (tokens sobressaem)</option>
+            <option value="DRAWING">Só o mapa e desenhos (tokens livres)</option>
             <option value="ATTACHMENT">Mapa e tokens</option>
           </select>
 
           <label for="stagger">Variação das luzes <output id="staggerValue"></output></label>
           <input id="stagger" type="range" min="0" max="90" step="5" />
-          <p class="hint small">Luzes acendem/apagam com pequena variação de minutos.</p>
         </div>
 
         <!-- ABA 3: ATMOSFERA E EFEITOS -->
@@ -121,11 +122,28 @@ function render() {
           <label class="switch">
             <input id="atmosphere" type="checkbox" />
             <span class="track"></span>
-            <span class="switch-text">Efeitos atmosféricos</span>
+            <span class="switch-text">Ativar efeitos atmosféricos</span>
           </label>
-          <p class="hint small">Ativa neblina ao amanhecer, raios solares no crepúsculo e estrelas durante a noite sem bloquear a visão da cena.</p>
 
-          <div class="row">
+          <div style="display:grid; gap:8px; margin-top:4px; padding-left:4px;">
+            <label class="switch">
+              <input id="fogEnabled" type="checkbox" />
+              <span class="track"></span>
+              <span class="switch-text">Neblina matinal</span>
+            </label>
+            <label class="switch">
+              <input id="raysEnabled" type="checkbox" />
+              <span class="track"></span>
+              <span class="switch-text">Raios solares (crepúsculo)</span>
+            </label>
+            <label class="switch">
+              <input id="starsEnabled" type="checkbox" />
+              <span class="track"></span>
+              <span class="switch-text">Céu estrelado à noite</span>
+            </label>
+          </div>
+
+          <div class="row" style="margin-top:6px;">
             <div class="grow">
               <label for="sunrise">Nascer do sol</label>
               <input id="sunrise" type="time" />
@@ -144,7 +162,6 @@ function render() {
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 
 function wire() {
-  // Lógica das Abas
   document.querySelectorAll<HTMLButtonElement>(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
@@ -175,6 +192,9 @@ function wire() {
   const staggerValue = $<HTMLOutputElement>("#staggerValue");
   const biomeEl = $<HTMLSelectElement>("#biome");
   const atmosphereEl = $<HTMLInputElement>("#atmosphere");
+  const fogEl = $<HTMLInputElement>("#fogEnabled");
+  const raysEl = $<HTMLInputElement>("#raysEnabled");
+  const starsEl = $<HTMLInputElement>("#starsEnabled");
   const moonInfoEl = $<HTMLElement>("#moonInfo");
   const roMsg = $<HTMLElement>("#roMsg");
   const noScene = $<HTMLElement>("#noScene");
@@ -207,6 +227,9 @@ function wire() {
     staggerEl.value = String(clock.stagger);
     biomeEl.value = clock.biome;
     atmosphereEl.checked = clock.atmosphere;
+    fogEl.checked = clock.fogEnabled;
+    raysEl.checked = clock.raysEnabled;
+    starsEl.checked = clock.starsEnabled;
     staggerValue.value = `±${clock.stagger} min`;
     if (document.activeElement !== sunriseEl) sunriseEl.value = formatHour(clock.sunrise);
     if (document.activeElement !== sunsetEl) sunsetEl.value = formatHour(clock.sunset);
@@ -255,6 +278,9 @@ function wire() {
   tintEl.addEventListener("change", () => commit({ tint: tintEl.checked }));
   biomeEl.addEventListener("change", () => commit({ biome: biomeEl.value as ClockState["biome"] }));
   atmosphereEl.addEventListener("change", () => commit({ atmosphere: atmosphereEl.checked }));
+  fogEl.addEventListener("change", () => commit({ fogEnabled: fogEl.checked }));
+  raysEl.addEventListener("change", () => commit({ raysEnabled: raysEl.checked }));
+  starsEl.addEventListener("change", () => commit({ starsEnabled: starsEl.checked }));
   strengthEl.addEventListener("input", () => {
     strengthValue.value = `${Math.round(Number(strengthEl.value) * 100)}%`;
     commitSoon({ strength: Number(strengthEl.value) });

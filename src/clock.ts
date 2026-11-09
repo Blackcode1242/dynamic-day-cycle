@@ -1,9 +1,8 @@
-// Contrato entre o Dynamic Day Cycle e o Dynamic Auras & Lights.
 export const CLOCK_KEY = "com.example.dynamic-day-cycle/state";
 
 export type TintLayer = "DRAWING" | "ATTACHMENT";
 export type Schedule = "always" | "night" | "day";
-export type Biome = "desert" | "forest" | "snow" | "swamp";
+export type Biome = "urban" | "desert" | "forest" | "snow" | "swamp" | "bloodmoon";
 
 export type ClockState = {
   enabled: boolean;
@@ -20,16 +19,21 @@ export type ClockState = {
   biome: Biome;
   moonOffset: number;
   atmosphere: boolean;
+  fogEnabled: boolean;
+  raysEnabled: boolean;
+  starsEnabled: boolean;
 };
 
 export const DEFAULT_CLOCK: ClockState = {
   enabled: false, running: false, speed: 60, anchorReal: 0,
   anchorGame: 12 * 3600, sunrise: 6, sunset: 18,
-  tint: true, strength: 0.75, tintLayer: "DRAWING", stagger: 20,
-  biome: "forest", moonOffset: 14, atmosphere: true
+  tint: true, strength: 0.7, tintLayer: "DRAWING", stagger: 20,
+  biome: "urban", moonOffset: 14, atmosphere: true,
+  fogEnabled: true, raysEnabled: true, starsEnabled: true
 };
 
 export const SPEEDS = [0.25, 0.5, 1, 1.5, 2, 4, 8, 16, 32, 60, 64, 120, 240, 720];
+
 function num(value: unknown, fallback: number, min: number, max: number) {
   const n = typeof value === "number" && Number.isFinite(value) ? value : fallback;
   return Math.min(max, Math.max(min, n));
@@ -38,7 +42,8 @@ function num(value: unknown, fallback: number, min: number, max: number) {
 export function normalizeClock(raw: unknown): ClockState {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const d = DEFAULT_CLOCK;
-  const biome = ["desert", "forest", "snow", "swamp"].includes(String(r.biome)) ? r.biome as Biome : d.biome;
+  const validBiomes: Biome[] = ["urban", "desert", "forest", "snow", "swamp", "bloodmoon"];
+  const biome = validBiomes.includes(String(r.biome) as Biome) ? (r.biome as Biome) : d.biome;
   return {
     enabled: r.enabled === true, running: r.running === true,
     speed: num(r.speed, d.speed, 0.01, 5000),
@@ -49,7 +54,10 @@ export function normalizeClock(raw: unknown): ClockState {
     tintLayer: r.tintLayer === "ATTACHMENT" ? "ATTACHMENT" : "DRAWING",
     stagger: num(r.stagger, d.stagger, 0, 90), biome,
     moonOffset: num(r.moonOffset, d.moonOffset, 0, 29.53),
-    atmosphere: r.atmosphere !== false
+    atmosphere: r.atmosphere !== false,
+    fogEnabled: r.fogEnabled !== false,
+    raysEnabled: r.raysEnabled !== false,
+    starsEnabled: r.starsEnabled !== false
   };
 }
 
@@ -122,10 +130,12 @@ export function moonLabel(c: ClockState, now = Date.now()) {
 
 type Rgb = [number, number, number];
 const PALETTES: Record<Biome, { night: Rgb; predawn: Rgb; dawn: Rgb; day: Rgb; dusk: Rgb; twilight: Rgb }> = {
+  urban: { night: [70, 85, 110], predawn: [130, 140, 165], dawn: [230, 210, 190], day: [250, 250, 250], dusk: [220, 175, 145], twilight: [100, 110, 135] },
   desert: { night: [85, 102, 160], predawn: [135, 144, 194], dawn: [255, 190, 140], day: [255, 244, 222], dusk: [255, 160, 110], twilight: [133, 111, 170] },
   forest: { night: [78, 106, 149], predawn: [124, 152, 171], dawn: [190, 210, 165], day: [224, 239, 218], dusk: [214, 177, 139], twilight: [107, 133, 157] },
   snow: { night: [103, 131, 186], predawn: [171, 194, 224], dawn: [235, 215, 200], day: [239, 247, 255], dusk: [232, 189, 171], twilight: [131, 153, 197] },
-  swamp: { night: [78, 113, 106], predawn: [123, 159, 137], dawn: [200, 196, 139], day: [223, 229, 194], dusk: [203, 171, 111], twilight: [107, 135, 103] }
+  swamp: { night: [78, 113, 106], predawn: [123, 159, 137], dawn: [200, 196, 139], day: [223, 229, 194], dusk: [203, 171, 111], twilight: [107, 135, 103] },
+  bloodmoon: { night: [110, 45, 45], predawn: [140, 75, 75], dawn: [210, 120, 100], day: [240, 220, 220], dusk: [190, 90, 80], twilight: [120, 50, 50] }
 };
 
 function keyframes(c: ClockState): { h: number; rgb: Rgb }[] {
@@ -153,6 +163,6 @@ export function tintHex(h: number, c: ClockState): string {
   return [0, 1, 2].map(i => {
     const v = a.rgb[i] + (b.rgb[i] - a.rgb[i]) * t;
     const adjusted = Math.round(255 - (255 - v) * strength);
-    return Math.min(255, Math.max(40, adjusted)).toString(16).padStart(2, "0");
+    return Math.min(255, Math.max(50, adjusted)).toString(16).padStart(2, "0");
   }).join("");
 }
