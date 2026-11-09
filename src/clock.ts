@@ -25,7 +25,7 @@ export type ClockState = {
 export const DEFAULT_CLOCK: ClockState = {
   enabled: false, running: false, speed: 60, anchorReal: 0,
   anchorGame: 12 * 3600, sunrise: 6, sunset: 18,
-  tint: true, strength: 0.85, tintLayer: "DRAWING", stagger: 20,
+  tint: true, strength: 0.75, tintLayer: "DRAWING", stagger: 20,
   biome: "forest", moonOffset: 14, atmosphere: true
 };
 
@@ -45,7 +45,7 @@ export function normalizeClock(raw: unknown): ClockState {
     anchorReal: num(r.anchorReal, d.anchorReal, 0, 8.64e15),
     anchorGame: num(r.anchorGame, d.anchorGame, -1e12, 1e12),
     sunrise: num(r.sunrise, d.sunrise, 3, 10), sunset: num(r.sunset, d.sunset, 15, 22),
-    tint: r.tint !== false, strength: num(r.strength, d.strength, 0.2, 1),
+    tint: r.tint !== false, strength: num(r.strength, d.strength, 0.1, 0.85),
     tintLayer: r.tintLayer === "ATTACHMENT" ? "ATTACHMENT" : "DRAWING",
     stagger: num(r.stagger, d.stagger, 0, 90), biome,
     moonOffset: num(r.moonOffset, d.moonOffset, 0, 29.53),
@@ -120,14 +120,14 @@ export function moonLabel(c: ClockState, now = Date.now()) {
   return "Lua minguante";
 }
 
-// Paletas de ambiente: valores representam a cor que multiplica o mapa.
 type Rgb = [number, number, number];
 const PALETTES: Record<Biome, { night: Rgb; predawn: Rgb; dawn: Rgb; day: Rgb; dusk: Rgb; twilight: Rgb }> = {
-  desert: { night: [55, 72, 135], predawn: [115, 124, 174], dawn: [255, 170, 112], day: [255, 244, 222], dusk: [255, 135, 82], twilight: [113, 91, 150] },
-  forest: { night: [48, 76, 119], predawn: [104, 132, 151], dawn: [170, 190, 145], day: [224, 239, 218], dusk: [194, 157, 119], twilight: [77, 103, 127] },
-  snow: { night: [83, 111, 166], predawn: [151, 174, 204], dawn: [225, 205, 190], day: [239, 247, 255], dusk: [222, 169, 151], twilight: [111, 133, 177] },
-  swamp: { night: [48, 83, 76], predawn: [103, 139, 117], dawn: [184, 180, 119], day: [223, 229, 194], dusk: [183, 151, 91], twilight: [77, 105, 83] }
+  desert: { night: [85, 102, 160], predawn: [135, 144, 194], dawn: [255, 190, 140], day: [255, 244, 222], dusk: [255, 160, 110], twilight: [133, 111, 170] },
+  forest: { night: [78, 106, 149], predawn: [124, 152, 171], dawn: [190, 210, 165], day: [224, 239, 218], dusk: [214, 177, 139], twilight: [107, 133, 157] },
+  snow: { night: [103, 131, 186], predawn: [171, 194, 224], dawn: [235, 215, 200], day: [239, 247, 255], dusk: [232, 189, 171], twilight: [131, 153, 197] },
+  swamp: { night: [78, 113, 106], predawn: [123, 159, 137], dawn: [200, 196, 139], day: [223, 229, 194], dusk: [203, 171, 111], twilight: [107, 135, 103] }
 };
+
 function keyframes(c: ClockState): { h: number; rgb: Rgb }[] {
   const p = PALETTES[c.biome], wrap = (h: number) => ((h % 24) + 24) % 24;
   return [
@@ -137,6 +137,7 @@ function keyframes(c: ClockState): { h: number; rgb: Rgb }[] {
     { h: c.sunset + 0.75, rgb: p.twilight }, { h: c.sunset + 1.75, rgb: p.night }
   ].map(k => ({ h: wrap(k.h), rgb: k.rgb })).sort((a, b) => a.h - b.h);
 }
+
 export function tintHex(h: number, c: ClockState): string {
   const keys = keyframes(c);
   let a = keys[keys.length - 1], b = keys[0];
@@ -147,9 +148,11 @@ export function tintHex(h: number, c: ClockState): string {
   const span = ((b.h - a.h) + 24) % 24 || 24;
   const t = Math.min(1, Math.max(0, (((h - a.h) + 24) % 24) / span));
   const night = !isDayAt(h, c) ? moonIllumination(c) : 0;
-  const strength = c.strength * (1 - night * 0.32); // lua cheia reduz a escuridão noturna
+  const strength = Math.min(0.8, c.strength * (1 - night * 0.25));
+  
   return [0, 1, 2].map(i => {
     const v = a.rgb[i] + (b.rgb[i] - a.rgb[i]) * t;
-    return Math.min(255, Math.max(0, Math.round(255 + (v - 255) * strength))).toString(16).padStart(2, "0");
+    const adjusted = Math.round(255 - (255 - v) * strength);
+    return Math.min(255, Math.max(40, adjusted)).toString(16).padStart(2, "0");
   }).join("");
 }
