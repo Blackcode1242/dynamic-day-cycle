@@ -2,7 +2,7 @@
   "name": "Dynamic Day Cycle",
   "version": "0.2.2",
   "manifest_version": 1,
-  "description": "Esta extensão permite o mestre colocar ciclos de dia e noite dentro de seus mapas, deixando uma dinâmica de horários dentro de suas cenas.",
+  "description": "Extensão que permite o mestre colocar ciclos de dia e noite dentro de seus mapas.",
   "author": "Blackcode1242",
   "icon": "https://blackcode1242.github.io/dynamic-day-cycle/icon.svg",
   "background_url": "https://blackcode1242.github.io/dynamic-day-cycle/background.html",
