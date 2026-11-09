@@ -26,19 +26,19 @@ half4 main(float2 coord) {
   vec2 p = coord / size;
   float morning = (1.0 - smoothstep(sunrise + 0.2, sunrise + 2.6, hour)) * smoothstep(sunrise - 1.0, sunrise + 0.2, hour);
   float evening = smoothstep(sunset - 2.4, sunset - 0.3, hour) * (1.0 - smoothstep(sunset + 0.3, sunset + 1.4, hour));
-  float mistAlpha = morning * 0.16;
+  float mistAlpha = morning * 0.12;
   float rayAxis = mix(p.x * 0.72 + p.y * 0.28, p.x * -0.48 + p.y * 0.88, step(0.001, evening));
   float rayBands = pow(max(0.0, sin(rayAxis * 18.0 + 0.5)), 7.0);
-  float raysAlpha = max(morning, evening) * rayBands * 0.13;
+  float raysAlpha = max(morning, evening) * rayBands * 0.10;
   vec2 cell = floor(coord / 34.0);
   float rnd = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
   float star = step(0.986, rnd) * (0.45 + 0.55 * sin((hour * 6.283 + rnd * 80.0)));
-  float starAlpha = star * night * (0.10 + moon * 0.12);
+  float starAlpha = star * night * (0.08 + moon * 0.10);
   float alpha = max(mistAlpha, max(raysAlpha, starAlpha)) * enabled;
-  vec3 color = vec3(0.88, 0.93, 1.0);
-  color = mix(color, vec3(1.0, 0.72, 0.43), raysAlpha / max(alpha, 0.001));
-  color = mix(color, vec3(0.75, 0.84, 1.0), starAlpha / max(alpha, 0.001));
-  return half4(color, alpha);
+  vec3 color = vec3(0.85, 0.90, 1.0);
+  color = mix(color, vec3(1.0, 0.70, 0.40), raysAlpha / max(alpha, 0.001));
+  color = mix(color, vec3(0.70, 0.80, 1.0), starAlpha / max(alpha, 0.001));
+  return half4(color * alpha, alpha);
 }`;
 
 function rgbUniform(hex: string) {
@@ -105,8 +105,9 @@ async function apply() {
   ];
   if (!atmosId || lastAtmosGeo !== geoSig) {
     if (atmosId) await removeAtmos();
+    // Alterado para SCREEN para evitar o fundo preto opaco e somar os efeitos suavemente
     const effect = buildEffect().effectType("STANDALONE").width(geo.width).height(geo.height)
-      .position({ x: geo.x, y: geo.y }).layer(clock.tintLayer).blendMode("SRC_OVER")
+      .position({ x: geo.x, y: geo.y }).layer(clock.tintLayer).blendMode("SCREEN")
       .locked(true).disableHit(true).zIndex(1).uniforms(uniforms).sksl(ATMOS_SKSL)
       .metadata({ [ATMOS_TAG]: true }).build();
     await OBR.scene.local.addItems([effect]); atmosId = effect.id; lastAtmosGeo = geoSig;
