@@ -1,0 +1,16 @@
+{
+  "name": "Dynamic Day Cycle",
+  "version": "0.1.0",
+  "manifest_version": 1,
+  "description": "Ciclo de dia e noite no mapa: relógio com velocidade ajustável, filtro de cor e luzes que acendem ao anoitecer.",
+  "author": "Blackcode1242",
+  "icon": "https://blackcode1242.github.io/dynamic-day-cycle/icon.svg",
+  "background_url": "https://blackcode1242.github.io/dynamic-day-cycle/background.html",
+  "action": {
+    "title": "Dynamic Day Cycle",
+    "icon": "https://blackcode1242.github.io/dynamic-day-cycle/icon.svg",
+    "popover": "https://blackcode1242.github.io/dynamic-day-cycle/",
+    "height": 640,
+    "width": 340
+  }
+}

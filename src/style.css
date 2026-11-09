@@ -1,0 +1,59 @@
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #f4f2ee; background: #17191f; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: #17191f; }
+main { padding: 18px 20px 14px; }
+header { margin-bottom: 14px; }
+.topline { display: flex; justify-content: space-between; align-items: center; }
+.eyebrow { color: #f3a65c; font-size: 10px; letter-spacing: .16em; font-weight: 800; }
+.icon-btn { border: 0; background: #343844; color: #e0e1e6; width: 26px; height: 26px; padding: 0; border-radius: 7px; font-size: 12px; }
+h1 { font-size: 23px; line-height: 1.1; margin: 8px 0 0; letter-spacing: -.04em; }
+h1 span { color: #f3a65c; }
+.panel { background: #22252e; border: 1px solid #353945; border-radius: 13px; padding: 15px; display: grid; gap: 10px; }
+.empty-title { margin: 0; font-size: 13px; font-weight: 800; }
+.sel { font-size: 12px; font-weight: 800; color: #f3a65c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+label { color: #d9dbe1; font-size: 11px; font-weight: 700; display: flex; justify-content: space-between; }
+output { color: #a9acb5; font-weight: 600; }
+select, input[type="number"] { width: 100%; border: 1px solid #454a58; border-radius: 8px; padding: 10px; color: #f4f2ee; background: #17191f; font: inherit; font-size: 12px; }
+input[type="range"] { width: 100%; accent-color: #f3a65c; margin: 0 0 5px; }
+.row { display: flex; gap: 12px; }
+.grow { flex: 1; min-width: 0; display: grid; gap: 7px; }
+input[type="color"] { width: 100%; height: 37px; border: 1px solid #454a58; border-radius: 8px; background: #17191f; padding: 3px; }
+button { border: 0; border-radius: 8px; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+.hint { color: #a9acb5; font-size: 11px; line-height: 1.5; margin: 0; }
+.status { margin: 0; color: #ff9a8a; font-size: 11px; line-height: 1.4; }
+footer { color: #777d8a; font-size: 10px; text-align: center; margin-top: 12px; }
+
+/* Interruptor "Aura ativa" */
+.switch { display: flex; align-items: center; justify-content: flex-start; gap: 10px; cursor: pointer; font-size: 13px; padding: 4px 0 6px; }
+.switch input { position: absolute; opacity: 0; pointer-events: none; }
+.track { width: 38px; height: 22px; border-radius: 22px; background: #454a58; position: relative; transition: background .15s; flex: none; }
+.track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #f4f2ee; transition: transform .15s; }
+.switch input:checked + .track { background: #f3a65c; }
+.switch input:checked + .track::after { transform: translateX(16px); background: #24180d; }
+.switch input:focus-visible + .track { outline: 2px solid #f3a65c; outline-offset: 2px; }
+.switch-text { font-weight: 800; }
+
+.diag { margin: 10px 0 0; font-size: 11px; color: #8f98ad; }
+.diag summary { cursor: pointer; }
+.diag pre { white-space: pre-wrap; word-break: break-word; margin: 6px 0 0; padding: 8px; border-radius: 8px; background: rgba(255,255,255,0.04); font-size: 11px; line-height: 1.5; }
+
+.mine { margin: 12px 0 0; font-size: 13px; }
+.mine summary { cursor: pointer; font-weight: 700; color: #f3a65c; margin-bottom: 8px; }
+.mine input[type="text"], .mine textarea { width: 100%; box-sizing: border-box; margin: 6px 0; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: inherit; font: inherit; }
+.mine textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; resize: vertical; }
+.btnrow { display: flex; gap: 8px; margin: 6px 0; }
+.mine button { flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+.mine button:hover { background: rgba(243,166,92,0.18); }
+.hint.small { font-size: 11px; margin: 4px 0 8px; opacity: 0.8; }
+
+/* ---- Dynamic Day Cycle ---- */
+.clockbox { display: flex; align-items: center; gap: 14px; }
+.bigtime { font-size: 38px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1; }
+.phase { font-size: 12px; color: #a9acb5; font-weight: 700; margin-top: 4px; }
+.swatch { width: 38px; height: 38px; border-radius: 10px; border: 1px solid #454a58; margin-left: auto; flex: none; }
+.btn { padding: 10px 12px; background: #343844; color: #f4f2ee; }
+.btn.primary { background: #f3a65c; color: #24180d; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+input[type="time"], input[type="text"] { width: 100%; border: 1px solid #454a58; border-radius: 8px; padding: 9px; color: #f4f2ee; background: #17191f; font: inherit; font-size: 12px; }
+.ro { margin: 0; color: #ff9a8a; font-size: 11px; }
