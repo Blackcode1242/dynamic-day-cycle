@@ -18,7 +18,7 @@ function fmtDuration(seconds: number) {
 
 function speedLabel(s: number) {
   const n = String(s).replace(".", ",");
-  return `×${n} (dia em ${fmtDuration(86400 / s)})`;
+  return `×${n} (${fmtDuration(86400 / s)}/dia)`;
 }
 
 function render() {
@@ -30,103 +30,131 @@ function render() {
         <h1>Dynamic <span>Day Cycle</span></h1>
       </header>
 
+      <nav class="tabs">
+        <button class="tab-btn active" data-tab="tab-clock">⏱ Relógio</button>
+        <button class="tab-btn" data-tab="tab-filter">🎨 Filtros & Luzes</button>
+        <button class="tab-btn" data-tab="tab-effects">🌌 Atmosfera</button>
+      </nav>
+
       <section class="panel">
         <p id="noScene" class="ro" hidden>Abra uma cena para usar o ciclo de dia.</p>
         <p id="roMsg" class="ro" hidden>Só o GM pode alterar o relógio. Você vê a hora em tempo real.</p>
 
-        <label class="switch">
-          <input id="enabled" type="checkbox" />
-          <span class="track"></span>
-          <span class="switch-text">Ciclo ativo nesta cena</span>
-        </label>
+        <!-- ABA 1: RELÓGIO -->
+        <div id="tab-clock" class="tab-content">
+          <label class="switch">
+            <input id="enabled" type="checkbox" />
+            <span class="track"></span>
+            <span class="switch-text">Ciclo ativo nesta cena</span>
+          </label>
 
-        <div class="clockbox">
-          <div>
-            <div class="bigtime" id="time">--:--</div>
-            <div class="phase" id="phase"></div>
+          <div class="clockbox">
+            <div>
+              <div class="bigtime" id="time">--:--</div>
+              <div class="phase" id="phase"></div>
+            </div>
+            <div class="swatch" id="swatch" title="Cor do filtro agora"></div>
           </div>
-          <div class="swatch" id="swatch" title="Cor do filtro agora"></div>
-        </div>
-        <p class="hint" id="moonInfo">Lua: --</p>
+          <p class="hint" id="moonInfo">Lua: --</p>
 
-        <div class="btnrow" style="display:flex;gap:8px">
-          <button id="toggle" class="btn primary" type="button" style="flex:1">▶ Iniciar</button>
-        </div>
-        <div class="btnrow quicktime">
-          <button id="plus1" class="btn" type="button">+1h</button>
-          <button id="plus8" class="btn" type="button">+8h</button>
-        </div>
-        <div class="btnrow quicktime">
-          <button id="toDawn" class="btn" type="button">Até amanhecer</button>
-          <button id="toDusk" class="btn" type="button">Até anoitecer</button>
-        </div>
-
-        <div class="row">
-          <div class="grow">
-            <label for="setTime">Definir hora</label>
-            <input id="setTime" type="time" />
+          <div class="btnrow">
+            <button id="toggle" class="btn primary" type="button" style="flex:1">▶ Iniciar</button>
           </div>
-          <div class="grow" style="align-content:end">
-            <button id="applyTime" class="btn" type="button">Aplicar</button>
+          <div class="btnrow quicktime">
+            <button id="plus1" class="btn" type="button">+1h</button>
+            <button id="plus8" class="btn" type="button">+8h</button>
+            <button id="toDawn" class="btn" type="button">Amanhecer</button>
+            <button id="toDusk" class="btn" type="button">Anoitecer</button>
           </div>
+
+          <div class="row">
+            <div class="grow">
+              <label for="setTime">Definir hora</label>
+              <input id="setTime" type="time" />
+            </div>
+            <div class="grow" style="align-content:end">
+              <button id="applyTime" class="btn" type="button" style="width:100%">Aplicar</button>
+            </div>
+          </div>
+
+          <label for="speed">Velocidade do tempo</label>
+          <select id="speed">
+            ${SPEEDS.map((s) => `<option value="${s}">${speedLabel(s)}</option>`).join("")}
+            <option value="custom">Personalizada…</option>
+          </select>
+          <input id="customSpeed" type="number" min="0.01" max="5000" step="0.01" placeholder="Multiplicador (ex.: 90)" hidden />
+          <p class="hint small" id="speedInfo"></p>
         </div>
 
-        <label for="speed">Velocidade do tempo</label>
-        <select id="speed">
-          ${SPEEDS.map((s) => `<option value="${s}">${speedLabel(s)}</option>`).join("")}
-          <option value="custom">Personalizada…</option>
-        </select>
-        <input id="customSpeed" type="number" min="0.01" max="5000" step="0.01" placeholder="Multiplicador (ex.: 90)" hidden />
-        <p class="hint small" id="speedInfo"></p>
+        <!-- ABA 2: FILTROS E LUZES -->
+        <div id="tab-filter" class="tab-content" hidden>
+          <label class="switch">
+            <input id="tint" type="checkbox" />
+            <span class="track"></span>
+            <span class="switch-text">Filtro de cor no mapa</span>
+          </label>
 
-        <div class="row">
-          <div class="grow">
-            <label for="sunrise">Nascer do sol</label>
-            <input id="sunrise" type="time" />
-          </div>
-          <div class="grow">
-            <label for="sunset">Pôr do sol</label>
-            <input id="sunset" type="time" />
-          </div>
+          <label for="biome">Perfil de cenário</label>
+          <select id="biome">
+            <option value="desert">Deserto · dourado e noite fria</option>
+            <option value="forest">Floresta · verde-azulado</option>
+            <option value="snow">Neve · luz fria</option>
+            <option value="swamp">Pântano · verde e ocre</option>
+          </select>
+
+          <label for="strength">Força do filtro <output id="strengthValue"></output></label>
+          <input id="strength" type="range" min="0.1" max="0.85" step="0.05" />
+
+          <label for="tintLayer">O filtro cobre</label>
+          <select id="tintLayer">
+            <option value="DRAWING">Só o mapa e desenhos (tokens sobressaem)</option>
+            <option value="ATTACHMENT">Mapa e tokens</option>
+          </select>
+
+          <label for="stagger">Variação das luzes <output id="staggerValue"></output></label>
+          <input id="stagger" type="range" min="0" max="90" step="5" />
+          <p class="hint small">Luzes acendem/apagam com pequena variação de minutos.</p>
         </div>
 
-        <label class="switch">
-          <input id="tint" type="checkbox" />
-          <span class="track"></span>
-          <span class="switch-text">Filtro de cor no mapa</span>
-        </label>
-        <label for="biome">Perfil de cenário</label>
-        <select id="biome">
-          <option value="desert">Deserto · dourado e noite fria</option>
-          <option value="forest">Floresta · verde-azulado</option>
-          <option value="snow">Neve · luz fria</option>
-          <option value="swamp">Pântano · verde e ocre</option>
-        </select>
-        <label class="switch">
-          <input id="atmosphere" type="checkbox" />
-          <span class="track"></span>
-          <span class="switch-text">Neblina, raios e estrelas</span>
-        </label>
-        <p class="hint small">A neblina aparece no amanhecer; os raios ficam mais fortes perto do nascer e pôr do sol; as estrelas surgem à noite.</p>
-        <label for="strength">Força do filtro <output id="strengthValue"></output></label>
-        <input id="strength" type="range" min="0.2" max="1" step="0.05" />
-        <label for="tintLayer">O filtro cobre</label>
-        <select id="tintLayer">
-          <option value="DRAWING">Só o mapa e desenhos (tokens ficam claros)</option>
-          <option value="ATTACHMENT">Mapa e tokens</option>
-        </select>
+        <!-- ABA 3: ATMOSFERA E EFEITOS -->
+        <div id="tab-effects" class="tab-content" hidden>
+          <label class="switch">
+            <input id="atmosphere" type="checkbox" />
+            <span class="track"></span>
+            <span class="switch-text">Efeitos atmosféricos</span>
+          </label>
+          <p class="hint small">Ativa neblina ao amanhecer, raios solares no crepúsculo e estrelas durante a noite sem bloquear a visão da cena.</p>
 
-        <label for="stagger">Variação das luzes <output id="staggerValue"></output></label>
-        <input id="stagger" type="range" min="0" max="90" step="5" />
-        <p class="hint small">Cada luz com agenda (Dynamic Auras &amp; Lights 1.5+) acende e apaga alguns minutos antes ou depois das outras.</p>
+          <div class="row">
+            <div class="grow">
+              <label for="sunrise">Nascer do sol</label>
+              <input id="sunrise" type="time" />
+            </div>
+            <div class="grow">
+              <label for="sunset">Pôr do sol</label>
+              <input id="sunset" type="time" />
+            </div>
+          </div>
+        </div>
       </section>
-      <footer>Dynamic Day Cycle 0.2.0</footer>
+      <footer>Dynamic Day Cycle v0.2.0</footer>
     </main>`;
 }
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 
 function wire() {
+  // Lógica das Abas
+  document.querySelectorAll<HTMLButtonElement>(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach((c) => (c as HTMLElement).hidden = true);
+      btn.classList.add("active");
+      const targetId = btn.getAttribute("data-tab")!;
+      $(`#${targetId}`).hidden = false;
+    });
+  });
+
   const enabledEl = $<HTMLInputElement>("#enabled");
   const timeEl = $<HTMLElement>("#time");
   const phaseEl = $<HTMLElement>("#phase");
@@ -151,7 +179,6 @@ function wire() {
   const roMsg = $<HTMLElement>("#roMsg");
   const noScene = $<HTMLElement>("#noScene");
 
-  // Aplica uma mudança mantendo a hora contínua: reancora o relógio no instante atual.
   async function commit(changes: Partial<ClockState>) {
     if (!isGM || !sceneReady) return;
     const now = Date.now();
@@ -171,7 +198,7 @@ function wire() {
     speedEl.value = known ? String(clock.speed) : "custom";
     customEl.hidden = known;
     if (!known) customEl.value = String(clock.speed);
-    infoEl.textContent = `1 hora de jogo = ${fmtDuration(3600 / clock.speed)} reais · um dia inteiro = ${fmtDuration(86400 / clock.speed)} reais.`;
+    infoEl.textContent = `1h de jogo = ${fmtDuration(3600 / clock.speed)} reais.`;
     enabledEl.checked = clock.enabled;
     tintEl.checked = clock.tint;
     strengthEl.value = String(clock.strength);
@@ -195,7 +222,7 @@ function wire() {
     timeEl.textContent = formatHour(h);
     phaseEl.textContent = clock.enabled ? PHASE_LABELS[phaseAt(h, clock)] : "Ciclo desligado";
     swatchEl.style.background = `#${tintHex(h, clock)}`;
-    moonInfoEl.textContent = `Lua: ${moonLabel(clock)} · influencia na claridade noturna`;
+    moonInfoEl.textContent = `Lua: ${moonLabel(clock)}`;
     if (document.activeElement !== setTimeEl && !setTimeEl.value) setTimeEl.value = formatHour(h);
   }
 
