@@ -1,9 +1,10 @@
 import OBR from "@owlbear-rodeo/sdk";
 import "./style.css";
 import {
-  PHASE_LABELS, SPEEDS, formatHour, gameSeconds, hourOfDay, normalizeClock, parseHour, phaseAt, readClock, tintHex, CLOCK_KEY, moonLabel
+  PHASE_LABELS, SPEEDS, formatHour, gameSeconds, hourOfDay, normalizeClock, parseHour, phaseAt, readClock, tintHex, CLOCK_KEY,
+  MOON_PHASES, moonIllumination, moonOffsetFor, moonPhaseIndex
 } from "./clock";
-import type { ClockState, TintLayer } from "./clock";
+import type { ClockState, SunSide, TintLayer } from "./clock";
 
 let clock: ClockState = normalizeClock(null);
 let isGM = false;
@@ -32,6 +33,7 @@ function render() {
       <nav class="tabs">
         <button class="tab-btn active" data-tab="tab-clock">⏱ Relógio</button>
         <button class="tab-btn" data-tab="tab-filter">🎨 Filtros & Cenário</button>
+        <button class="tab-btn" data-tab="tab-fx">🌫 Ambiente</button>
       </nav>
 
       <section class="panel">
@@ -117,8 +119,74 @@ function render() {
             </div>
           </div>
         </div>
+
+        <!-- ABA 3: EFEITOS AMBIENTAIS -->
+        <div id="tab-fx" class="tab-content" hidden>
+          <label class="switch">
+            <input id="fx" type="checkbox" />
+            <span class="track"></span>
+            <span class="switch-text">Efeitos ambientais</span>
+          </label>
+
+          <div class="card">
+            <label class="switch">
+              <input id="fog" type="checkbox" />
+              <span class="track"></span>
+              <span class="switch-text">🌫 Neblina</span>
+            </label>
+            <p class="hint small">Camada branca suave que surge perto do amanhecer e some até o meio da manhã.</p>
+            <label for="fogStrength">Intensidade <output id="fogStrengthValue"></output></label>
+            <input id="fogStrength" type="range" min="0.1" max="1" step="0.05" />
+          </div>
+
+          <div class="card">
+            <label class="switch">
+              <input id="rays" type="checkbox" />
+              <span class="track"></span>
+              <span class="switch-text">🌅 Raios de luz</span>
+            </label>
+            <p class="hint small">Perto do nascer e do pôr do sol, um gradiente direcional dá a sensação de sol baixo.</p>
+            <label for="raysStrength">Intensidade <output id="raysStrengthValue"></output></label>
+            <input id="raysStrength" type="range" min="0.1" max="1" step="0.05" />
+            <label for="sunSide">O sol nasce</label>
+            <select id="sunSide">
+              <option value="E">À direita (pôr à esquerda)</option>
+              <option value="W">À esquerda (pôr à direita)</option>
+              <option value="N">Em cima (pôr embaixo)</option>
+              <option value="S">Embaixo (pôr em cima)</option>
+            </select>
+          </div>
+
+          <div class="card">
+            <label class="switch">
+              <input id="stars" type="checkbox" />
+              <span class="track"></span>
+              <span class="switch-text">✨ Estrelas</span>
+            </label>
+            <p class="hint small">À noite surgem pontinhos cintilantes. Na lua cheia, ficam um pouco mais apagadas.</p>
+            <label for="starsDensity">Quantidade <output id="starsDensityValue"></output></label>
+            <input id="starsDensity" type="range" min="0.1" max="1" step="0.05" />
+          </div>
+
+          <div class="card">
+            <div class="moonrow">
+              <div class="moonicon" id="moonIcon">🌑</div>
+              <div>
+                <div class="moonname" id="moonName">--</div>
+                <div class="hint small" id="moonLight"></div>
+              </div>
+            </div>
+            <label for="moonPhase">Fase da lua agora</label>
+            <select id="moonPhase">
+              ${MOON_PHASES.map((m, i) => `<option value="${i}">${m.emoji} ${m.label}</option>`).join("")}
+            </select>
+            <label for="moonInfluence">Influência da lua no filtro <output id="moonInfluenceValue"></output></label>
+            <input id="moonInfluence" type="range" min="0" max="1.5" step="0.05" />
+            <p class="hint small">À noite, a lua cheia clareia o filtro e a lua nova o deixa mais escuro. A fase avança sozinha com os dias do jogo.</p>
+          </div>
+        </div>
       </section>
-      <footer>Dynamic Day Cycle v0.2.1</footer>
+      <footer>Dynamic Day Cycle v0.3.0</footer>
     </main>`;
 }
 
@@ -154,6 +222,22 @@ function wire() {
   const staggerValue = $<HTMLOutputElement>("#staggerValue");
   const biomeEl = $<HTMLSelectElement>("#biome");
   const moonInfoEl = $<HTMLElement>("#moonInfo");
+  const fxEl = $<HTMLInputElement>("#fx");
+  const fogEl = $<HTMLInputElement>("#fog");
+  const raysEl = $<HTMLInputElement>("#rays");
+  const starsEl = $<HTMLInputElement>("#stars");
+  const sunSideEl = $<HTMLSelectElement>("#sunSide");
+  const moonPhaseEl = $<HTMLSelectElement>("#moonPhase");
+  const moonIconEl = $<HTMLElement>("#moonIcon");
+  const moonNameEl = $<HTMLElement>("#moonName");
+  const moonLightEl = $<HTMLElement>("#moonLight");
+  // Sliders da aba Ambiente: [chave no estado, formato do valor exibido]
+  const fxSliders: Array<[keyof ClockState, (v: number) => string]> = [
+    ["fogStrength", (v) => `${Math.round(v * 100)}%`],
+    ["raysStrength", (v) => `${Math.round(v * 100)}%`],
+    ["starsDensity", (v) => `${Math.round(v * 100)}%`],
+    ["moonInfluence", (v) => `${Math.round(v * 100)}%`]
+  ];
   const roMsg = $<HTMLElement>("#roMsg");
   const noScene = $<HTMLElement>("#noScene");
 
@@ -184,6 +268,14 @@ function wire() {
     staggerEl.value = String(clock.stagger);
     biomeEl.value = clock.biome;
     staggerValue.value = `±${clock.stagger} min`;
+    fxEl.checked = clock.fx; fogEl.checked = clock.fog; raysEl.checked = clock.rays; starsEl.checked = clock.stars;
+    sunSideEl.value = clock.sunSide;
+    for (const [key, fmt] of fxSliders) {
+      const input = $<HTMLInputElement>(`#${key}`);
+      if (document.activeElement !== input) input.value = String(clock[key]);
+      $<HTMLOutputElement>(`#${key}Value`).value = fmt(Number(clock[key]));
+    }
+    if (document.activeElement !== moonPhaseEl) moonPhaseEl.value = String(moonPhaseIndex(clock));
     if (document.activeElement !== sunriseEl) sunriseEl.value = formatHour(clock.sunrise);
     if (document.activeElement !== sunsetEl) sunsetEl.value = formatHour(clock.sunset);
     toggleEl.textContent = clock.running ? "⏸ Pausar" : "▶ Iniciar";
@@ -200,7 +292,12 @@ function wire() {
     timeEl.textContent = formatHour(h);
     phaseEl.textContent = clock.enabled ? PHASE_LABELS[phaseAt(h, clock)] : "Ciclo desligado";
     swatchEl.style.background = `#${tintHex(h, clock)}`;
-    moonInfoEl.textContent = `Lua: ${moonLabel(clock)}`;
+    const moon = MOON_PHASES[moonPhaseIndex(clock)];
+    moonInfoEl.textContent = `Lua: ${moon.label}`;
+    moonIconEl.textContent = moon.emoji;
+    moonNameEl.textContent = moon.label;
+    moonLightEl.textContent = `${Math.round(moonIllumination(clock) * 100)}% iluminada`;
+    if (document.activeElement !== moonPhaseEl) moonPhaseEl.value = String(moonPhaseIndex(clock));
     if (document.activeElement !== setTimeEl && !setTimeEl.value) setTimeEl.value = formatHour(h);
   }
 
@@ -240,6 +337,23 @@ function wire() {
   staggerEl.addEventListener("input", () => {
     staggerValue.value = `±${staggerEl.value} min`;
     commitSoon({ stagger: Number(staggerEl.value) });
+  });
+
+  // Aba Ambiente
+  for (const [el, key] of [[fxEl, "fx"], [fogEl, "fog"], [raysEl, "rays"], [starsEl, "stars"]] as const) {
+    el.addEventListener("change", () => commit({ [key]: el.checked }));
+  }
+  sunSideEl.addEventListener("change", () => commit({ sunSide: sunSideEl.value as SunSide }));
+  for (const [key, fmt] of fxSliders) {
+    const input = $<HTMLInputElement>(`#${key}`);
+    input.addEventListener("input", () => {
+      $<HTMLOutputElement>(`#${key}Value`).value = fmt(Number(input.value));
+      commitSoon({ [key]: Number(input.value) });
+    });
+  }
+  moonPhaseEl.addEventListener("change", () => {
+    const phase = MOON_PHASES[Number(moonPhaseEl.value)];
+    if (phase) commit({ moonOffset: moonOffsetFor(clock, phase.age) });
   });
 
   OBR.scene.onMetadataChange((meta) => {

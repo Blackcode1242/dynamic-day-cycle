@@ -1,6 +1,6 @@
 {
   "name": "Dynamic Day Cycle",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "manifest_version": 1,
   "description": "Extensão que permite o mestre colocar dia e noite dentro de seus mapas.",
   "author": "Blackcode1242",
@@ -10,7 +10,7 @@
     "title": "Dynamic Day Cycle",
     "icon": "https://blackcode1242.github.io/dynamic-day-cycle/icon.svg",
     "popover": "https://blackcode1242.github.io/dynamic-day-cycle/",
-    "height": 540,
+    "height": 600,
     "width": 420
   }
 }
